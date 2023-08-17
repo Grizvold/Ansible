@@ -1,0 +1,12 @@
+download_path: "/path/to/your/folder"
+extract_path: "/path/to/your/extracted/folder"
+files:
+  - url: "http://example.com/part1.tar"
+    dest: "{{ download_path }}/part1.tar"
+    sentinel: "{{ download_path }}/part1.sentinel"
+  - url: "http://example.com/part2.tar"
+    dest: "{{ download_path }}/part2.tar"
+    sentinel: "{{ download_path }}/part2.sentinel"
+  - url: "http://example.com/part3.tar"
+    dest: "{{ download_path }}/part3.tar"
+    sentinel: "{{ download_path }}/part3.sentinel"
