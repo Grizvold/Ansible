@@ -1,56 +1,41 @@
 ---
 - name: Download and extract split tar files if they do not exist
   hosts: localhost
-  vars:
-    download_path: "/path/to/your/folder"
-    extract_path: "/path/to/your/extracted/folder"
-    files:
-      - url: "http://example.com/part1.tar"
-        dest: "{{ download_path }}/part1.tar"
-        extracted_dir: "part1"
-        sentinel: "{{ download_path }}/part1.sentinel"
-      - url: "http://example.com/part2.tar"
-        dest: "{{ download_path }}/part2.tar"
-        extracted_dir: "part2"
-        sentinel: "{{ download_path }}/part2.sentinel"
-      - url: "http://example.com/part3.tar"
-        dest: "{{ download_path }}/part3.tar"
-        extracted_dir: "part3"
-        sentinel: "{{ download_path }}/part3.sentinel"
+  vars_files:
+    - all.yaml  # This includes the file that contains your variables
 
   tasks:
-    - name: Check if the sentinel file exists
+    - name: Check if the sentinel file exists for {{ item.url }}
       stat:
         path: "{{ item.sentinel }}"
       register: sentinel_status
       with_items: "{{ files }}"
 
-    - name: Download the tar file if the sentinel file does not exist
-      get_url:
-        url: "{{ item.item.url }}"
-        dest: "{{ item.item.dest }}"
-        timeout: 600
-      when: item.stat.exists == False
-      with_items: "{{ sentinel_status.results }}"
+    - block:
+        - name: Downloading {{ item.item.url }}
+          get_url:
+            url: "{{ item.item.url }}"
+            dest: "{{ item.item.dest }}"
+            timeout: 600
+          when: item.stat.exists == False
 
-    - name: Extract the tar file if the directory does not exist
-      unarchive:
-        src: "{{ item.item.dest }}"
-        dest: "{{ extract_path }}"
-        remote_src: yes
-      when: item.stat.exists == False
-      with_items: "{{ sentinel_status.results }}"
+        - name: Extracting {{ item.item.dest }}
+          unarchive:
+            src: "{{ item.item.dest }}"
+            dest: "{{ extract_path }}"
+            remote_src: yes
+          when: item.stat.exists == False
 
-    - name: Remove tar files after extraction
-      file:
-        path: "{{ item.item.dest }}"
-        state: absent
-      when: item.stat.exists == False
-      with_items: "{{ sentinel_status.results }}"
+        - name: Removing tar file {{ item.item.dest }}
+          file:
+            path: "{{ item.item.dest }}"
+            state: absent
+          when: item.stat.exists == False
 
-    - name: Create sentinel file after successful extraction
-      file:
-        path: "{{ item.item.sentinel }}"
-        state: touch
-      when: item.stat.exists == False
+        - name: Creating sentinel {{ item.item.sentinel }}
+          file:
+            path: "{{ item.item.sentinel }}"
+            state: touch
+          when: item.stat.exists == False
+
       with_items: "{{ sentinel_status.results }}"
