@@ -9,33 +9,40 @@
       stat:
         path: "{{ item.sentinel }}"
       register: sentinel_status
-      with_items: "{{ files }}"
+      loop: "{{ files }}"
 
     - block:
-        - name: Downloading {{ item.item.url }}
+        - name: Download {{ item.url }}
           get_url:
-            url: "{{ item.item.url }}"
-            dest: "{{ item.item.dest }}"
+            url: "{{ item.url }}"
+            dest: "{{ item.dest }}"
             timeout: 600
-          when: item.stat.exists == False
 
-        - name: Extracting {{ item.item.dest }}
+        - name: Extract {{ item.dest }}
           unarchive:
-            src: "{{ item.item.dest }}"
+            src: "{{ item.dest }}"
             dest: "{{ extract_path }}"
             remote_src: yes
-          when: item.stat.exists == False
 
-        - name: Removing tar file {{ item.item.dest }}
+        - name: Remove tar file {{ item.dest }}
           file:
-            path: "{{ item.item.dest }}"
+            path: "{{ item.dest }}"
             state: absent
-          when: item.stat.exists == False
 
-        - name: Creating sentinel {{ item.item.sentinel }}
+        - name: Creating sentinel {{ item.sentinel }}
           file:
-            path: "{{ item.item.sentinel }}"
+            path: "{{ item.sentinel }}"
             state: touch
-          when: item.stat.exists == False
 
-      with_items: "{{ sentinel_status.results }}"
+      rescue:
+        - name: Print error message
+          ansible.builtin.debug:
+            msg: 'An error occurred while processing {{ item.url }}.'
+
+      always:
+        - name: Print always message
+          ansible.builtin.debug:
+            msg: 'Finished processing {{ item.url }}.'
+
+      when: item.stat.exists == False
+      loop: "{{ sentinel_status.results }}"
