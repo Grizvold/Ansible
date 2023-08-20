@@ -1,17 +1,14 @@
 - name: Download and extract large files
   hosts: localhost
-  vars:
-    files:
-      - { url: 'https://example.com/file1.tar.gz', dest: '/path/to/destination1/' }
-      - { url: 'https://example.com/file2.tar.gz', dest: '/path/to/destination2/' }
-      - { url: 'https://example.com/file3.tar.gz', dest: '/path/to/destination3/' }
+  vars_files:
+    - path_to_your_vars_file.yml
 
   tasks:
     - name: Download and extract loop
       block:
         - name: Check if the sentinel file exists
           ansible.builtin.stat:
-            path: "{{ item.dest }}.sentinel"
+            path: "{{ item.sentinel }}"
           register: sentinel_check
           tags: always
 
@@ -25,14 +22,14 @@
         - name: Extract files if sentinel is missing
           ansible.builtin.unarchive:
             src: "{{ item.dest }}"
-            dest: "{{ item.dest }}"
+            dest: "{{ extract_path }}"
             remote_src: yes
           when: sentinel_check.stat.exists == false
           tags: extract
 
         - name: Touch sentinel file if extraction was successful
           ansible.builtin.file:
-            path: "{{ item.dest }}.sentinel"
+            path: "{{ item.sentinel }}"
             state: touch
           when: sentinel_check.stat.exists == false
           tags: always
