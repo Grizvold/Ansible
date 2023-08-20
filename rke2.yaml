@@ -1,48 +1,39 @@
----
-- name: Download and extract split tar files if they do not exist
+- name: Download and extract large files
   hosts: localhost
-  vars_files:
-    - all.yaml  # This includes the file that contains your variables
+  vars:
+    files:
+      - { url: 'https://example.com/file1.tar.gz', dest: '/path/to/destination1/' }
+      - { url: 'https://example.com/file2.tar.gz', dest: '/path/to/destination2/' }
+      - { url: 'https://example.com/file3.tar.gz', dest: '/path/to/destination3/' }
 
   tasks:
-    - name: Check if the sentinel file exists for {{ item.url }}
-      stat:
-        path: "{{ item.sentinel }}"
-      register: sentinel_status
-      loop: "{{ files }}"
+    - name: Download and extract loop
+      block:
+        - name: Check if the sentinel file exists
+          ansible.builtin.stat:
+            path: "{{ item.dest }}.sentinel"
+          register: sentinel_check
+          tags: always
 
-    - block:
-        - name: Download {{ item.url }}
-          get_url:
+        - name: Download large files if sentinel is missing
+          ansible.builtin.get_url:
             url: "{{ item.url }}"
             dest: "{{ item.dest }}"
-            timeout: 600
+          when: sentinel_check.stat.exists == false
+          tags: download
 
-        - name: Extract {{ item.dest }}
-          unarchive:
+        - name: Extract files if sentinel is missing
+          ansible.builtin.unarchive:
             src: "{{ item.dest }}"
-            dest: "{{ extract_path }}"
+            dest: "{{ item.dest }}"
             remote_src: yes
+          when: sentinel_check.stat.exists == false
+          tags: extract
 
-        - name: Remove tar file {{ item.dest }}
-          file:
-            path: "{{ item.dest }}"
-            state: absent
-
-        - name: Creating sentinel {{ item.sentinel }}
-          file:
-            path: "{{ item.sentinel }}"
+        - name: Touch sentinel file if extraction was successful
+          ansible.builtin.file:
+            path: "{{ item.dest }}.sentinel"
             state: touch
-
-      rescue:
-        - name: Print error message
-          ansible.builtin.debug:
-            msg: 'An error occurred while processing {{ item.url }}.'
-
-      always:
-        - name: Print always message
-          ansible.builtin.debug:
-            msg: 'Finished processing {{ item.url }}.'
-
-      when: item.stat.exists == False
-      loop: "{{ sentinel_status.results }}"
+          when: sentinel_check.stat.exists == false
+          tags: always
+      loop: "{{ files }}"
