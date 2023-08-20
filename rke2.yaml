@@ -1,36 +1,31 @@
-- name: Download and extract large files
-  hosts: localhost
-  vars_files:
-    - path_to_your_vars_file.yml
+- name: Check if the sentinel file exists
+  ansible.builtin.stat:
+    path: "{{ item.sentinel }}"
+  register: sentinel_check
+  loop: "{{ rancher_files }}"
+  tags: always
 
-  tasks:
-    - name: Download and extract loop
-      block:
-        - name: Check if the sentinel file exists
-          ansible.builtin.stat:
-            path: "{{ item.sentinel }}"
-          register: sentinel_check
-          tags: always
+- name: Download large files if sentinel is missing
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+  when: item.sentinel is not defined or sentinel_check.results | selectattr('stat.exists','equalto',false) | list | length > 0
+  loop: "{{ rancher_files }}"
+  tags: download
 
-        - name: Download large files if sentinel is missing
-          ansible.builtin.get_url:
-            url: "{{ item.url }}"
-            dest: "{{ item.dest }}"
-          when: sentinel_check.stat.exists == false
-          tags: download
+- name: Extract files if sentinel is missing
+  ansible.builtin.unarchive:
+    src: "{{ item.dest }}"
+    dest: "{{ rancher_extract_path }}"
+    remote_src: yes
+  when: item.sentinel is not defined or sentinel_check.results | selectattr('stat.exists','equalto',false) | list | length > 0
+  loop: "{{ rancher_files }}"
+  tags: extract
 
-        - name: Extract files if sentinel is missing
-          ansible.builtin.unarchive:
-            src: "{{ item.dest }}"
-            dest: "{{ extract_path }}"
-            remote_src: yes
-          when: sentinel_check.stat.exists == false
-          tags: extract
-
-        - name: Touch sentinel file if extraction was successful
-          ansible.builtin.file:
-            path: "{{ item.sentinel }}"
-            state: touch
-          when: sentinel_check.stat.exists == false
-          tags: always
-      loop: "{{ files }}"
+- name: Touch sentinel file if extraction was successful
+  ansible.builtin.file:
+    path: "{{ item.sentinel }}"
+    state: touch
+  when: item.sentinel is not defined or sentinel_check.results | selectattr('stat.exists','equalto',false) | list | length > 0
+  loop: "{{ rancher_files }}"
+  tags: always
