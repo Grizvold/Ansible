@@ -13,13 +13,25 @@
   loop: "{{ rancher_files }}"
   tags: download
 
-- name: Extract files if sentinel is missing
+- name: Concatenate split files into a single file
+  ansible.builtin.command:
+    cmd: "cat {{ rancher_download_path }}/rancher.tar.gz.part* > {{ rancher_download_path }}/rancher.tar.gz"
+  args:
+    creates: "{{ rancher_download_path }}/rancher.tar.gz"
+  tags: concatenate
+
+- name: Decompress the combined file
+  ansible.builtin.command:
+    cmd: "gzip -d {{ rancher_download_path }}/rancher.tar.gz"
+  args:
+    creates: "{{ rancher_download_path }}/rancher.tar"
+  tags: decompress
+
+- name: Extract the tar archive
   ansible.builtin.unarchive:
-    src: "{{ item.dest }}"
+    src: "{{ rancher_download_path }}/rancher.tar"
     dest: "{{ rancher_extract_path }}"
     remote_src: yes
-  when: item.sentinel is not defined or sentinel_check.results | selectattr('stat.exists','equalto',false) | list | length > 0
-  loop: "{{ rancher_files }}"
   tags: extract
 
 - name: Touch sentinel file if extraction was successful
