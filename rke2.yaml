@@ -1,4 +1,4 @@
-- name: Check if the sentinel file exists
+- name: Check if the sentinel files for download exist
   ansible.builtin.stat:
     path: "{{ item.sentinel }}"
   register: sentinel_check
@@ -11,30 +11,65 @@
     dest: "{{ item.dest }}"
   when: item.sentinel is not defined or sentinel_check.results | selectattr('stat.exists','equalto',false) | list | length > 0
   loop: "{{ rancher_files }}"
-  tags: download 
+  tags: download
+
+- name: Check if concatenated file exists
+  ansible.builtin.stat:
+    path: "{{ rancher_download_path }}/rancher.concatenated.sentinel"
+  register: concatenated_sentinel_check
 
 - name: Concatenate split files into a single file
   ansible.builtin.command:
     cmd: "cat {{ rancher_download_path }}/rancher.tar.gz.part* > {{ rancher_download_path }}/rancher.tar.gz"
-  args:
-    creates: "{{ rancher_download_path }}/rancher.tar.gz"
+  when: not concatenated_sentinel_check.stat.exists
   tags: concatenate
+
+- name: Touch concatenated sentinel
+  ansible.builtin.file:
+    path: "{{ rancher_download_path }}/rancher.concatenated.sentinel"
+    state: touch
+  when: not concatenated_sentinel_check.stat.exists
+  tags: concatenate
+
+- name: Check if decompressed file exists
+  ansible.builtin.stat:
+    path: "{{ rancher_download_path }}/rancher.decompressed.sentinel"
+  register: decompressed_sentinel_check
 
 - name: Decompress the combined file
   ansible.builtin.command:
     cmd: "gzip -d {{ rancher_download_path }}/rancher.tar.gz"
-  args:
-    creates: "{{ rancher_download_path }}/rancher.tar"
+  when: not decompressed_sentinel_check.stat.exists
   tags: decompress
+
+- name: Touch decompressed sentinel
+  ansible.builtin.file:
+    path: "{{ rancher_download_path }}/rancher.decompressed.sentinel"
+    state: touch
+  when: not decompressed_sentinel_check.stat.exists
+  tags: decompress
+
+- name: Check if extraction complete
+  ansible.builtin.stat:
+    path: "{{ rancher_download_path }}/rancher.extracted.sentinel"
+  register: extracted_sentinel_check
 
 - name: Extract the tar archive
   ansible.builtin.unarchive:
     src: "{{ rancher_download_path }}/rancher.tar"
     dest: "{{ rancher_extract_path }}"
     remote_src: yes
+  when: not extracted_sentinel_check.stat.exists
   tags: extract
 
-- name: Touch sentinel file if extraction was successful
+- name: Touch extracted sentinel
+  ansible.builtin.file:
+    path: "{{ rancher_download_path }}/rancher.extracted.sentinel"
+    state: touch
+  when: not extracted_sentinel_check.stat.exists
+  tags: extract
+
+- name: Touch original sentinel files if everything was successful
   ansible.builtin.file:
     path: "{{ item.sentinel }}"
     state: touch
