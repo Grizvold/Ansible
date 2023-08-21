@@ -11,7 +11,7 @@
     dest: "{{ item.dest }}"
   when: item.sentinel is not defined or sentinel_check.results | selectattr('stat.exists','equalto',false) | list | length > 0
   loop: "{{ rancher_files }}"
-  tags: download
+  tags: download 
 
 - name: Concatenate split files into a single file
   ansible.builtin.command:
