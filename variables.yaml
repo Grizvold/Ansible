@@ -10,3 +10,16 @@ files:
   - url: "http://example.com/part3.tar"
     dest: "{{ download_path }}/part3.tar"
     sentinel: "{{ download_path }}/part3.sentinel"
+
+
+vars:
+  cleanup_files: "{{ files | map(attribute='dest') | list }}"
+
+
+- name: Clean up files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop: "{{ cleanup_files }}"
+  tags: cleanup
+
