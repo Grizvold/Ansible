@@ -10,3 +10,4 @@ files:
   - url: "http://example.com/part3.tar"
     dest: "{{ download_path }}/part3.tar"
     sentinel: "{{ download_path }}/part3.sentinel"
+H!2r_PJ$UzsiT9E
