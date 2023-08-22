@@ -1,0 +1,38 @@
+# Your existing tasks...
+
+- name: Check if the sentinel files for RKE2 download exist
+  ansible.builtin.stat:
+    path: "{{ item.sentinel }}"
+  register: rke2_sentinel_check
+  loop: "{{ rke2_files }}"
+  tags: always
+
+- name: Download RKE2 artifact file if sentinel is missing
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "{{ item.dest }}"
+  when: item.sentinel is not defined or rke2_sentinel_check.results | selectattr('stat.exists','equalto',false) | list | length > 0
+  loop: "{{ rke2_files }}"
+  tags: download
+
+- name: Check if RKE2 extraction is complete
+  ansible.builtin.stat:
+    path: "{{ rke2_extract_path }}/rke2.extracted.sentinel"
+  register: rke2_extracted_sentinel_check
+
+- name: Extract the RKE2 archive
+  ansible.builtin.unarchive:
+    src: "{{ rke2_files[0].dest }}"  # Assuming there's only one item in rke2_files
+    dest: "{{ rke2_extract_path }}/rke2"
+    remote_src: yes
+  when: not rke2_extracted_sentinel_check.stat.exists
+  tags: extract
+
+- name: Touch RKE2 extracted sentinel
+  ansible.builtin.file:
+    path: "{{ rke2_extract_path }}/rke2.extracted.sentinel"
+    state: touch
+  when: not rke2_extracted_sentinel_check.stat.exists
+  tags: extract
+
+# ...rest of your tasks
